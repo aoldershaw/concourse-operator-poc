@@ -1,0 +1,24 @@
+# permissions for end users to edit concourses.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: concourse-editor-role
+rules:
+- apiGroups:
+  - deploy.concourse-ci.org
+  resources:
+  - concourses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - deploy.concourse-ci.org
+  resources:
+  - concourses/status
+  verbs:
+  - get

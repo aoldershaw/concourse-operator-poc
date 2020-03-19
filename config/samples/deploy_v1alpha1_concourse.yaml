@@ -1,0 +1,7 @@
+apiVersion: deploy.concourse-ci.org/v1alpha1
+kind: Concourse
+metadata:
+  name: concourse-sample
+spec:
+  # Add fields here
+  foo: bar

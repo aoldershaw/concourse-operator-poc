@@ -1,3 +1,7 @@
 domain: concourse-ci.org
 repo: github.com/aoldershaw/concourse-operator-poc
+resources:
+- group: deploy
+  kind: Concourse
+  version: v1alpha1
 version: "2"
