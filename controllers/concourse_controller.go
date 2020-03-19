@@ -37,11 +37,64 @@ type ConcourseReconciler struct {
 // +kubebuilder:rbac:groups=deploy.concourse-ci.org,resources=concourses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=deploy.concourse-ci.org,resources=concourses/status,verbs=get;update;patch
 
-func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("concourse", req.NamespacedName)
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch;get;patch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=list;watch;get;patch
 
-	// your logic here
+func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+	ctx := context.Background()
+	logger := r.Log.WithValues("concourse", req.NamespacedName)
+
+	logger.Info("reconciling concourse")
+
+	// TODO: create secrets (one of the main purposes of the operator...)
+
+	var concourse deployv1alpha1.Concourse
+	if err := r.Get(ctx, req.NamespacedName, &concourse); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	atcDeployment, err := r.desiredATCDeployment(concourse)
+	if err != nil {
+		logger.Error(err, "desired-atc-deployment")
+		return ctrl.Result{}, err
+	}
+	atcService, err := r.desiredATCService(concourse)
+	if err != nil {
+		logger.Error(err, "desired-atc-service")
+		return ctrl.Result{}, err
+	}
+	workerDeployment, err := r.desiredWorkerDeployment(concourse)
+	if err != nil {
+		logger.Error(err, "desired-worker-service")
+		return ctrl.Result{}, err
+	}
+
+	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("concourse-controller")}
+
+	// Note: this relies on Server-Side Apply, think you need 1.16+ ...
+	// TODO: make this work on older K8s
+	err = r.Patch(ctx, &atcDeployment, client.Apply, applyOpts...)
+	if err != nil {
+		logger.Error(err, "apply-atc-deployment")
+		return ctrl.Result{}, err
+	}
+	err = r.Patch(ctx, &atcService, client.Apply, applyOpts...)
+	if err != nil {
+		logger.Error(err, "apply-atc-service")
+		return ctrl.Result{}, err
+	}
+	err = r.Patch(ctx, &workerDeployment, client.Apply, applyOpts...)
+	if err != nil {
+		logger.Error(err, "apply-worker-deployment")
+		return ctrl.Result{}, err
+	}
+
+	concourse.Status.ATCURL = urlForService(atcService, 8080)
+	err = r.Status().Update(ctx, &concourse)
+	if err != nil {
+		logger.Error(err, "update-status")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

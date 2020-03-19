@@ -1,0 +1,105 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.5
+  creationTimestamp: null
+  name: concourses.deploy.concourse-ci.org
+spec:
+  group: deploy.concourse-ci.org
+  names:
+    kind: Concourse
+    listKind: ConcourseList
+    plural: concourses
+    singular: concourse
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Concourse is the Schema for the concourses API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ConcourseSpec defines the desired state of Concourse
+            properties:
+              web:
+                properties:
+                  clusterName:
+                    type: string
+                  postgres:
+                    properties:
+                      credentialsSecretName:
+                        description: 'TODO: what''s the best way to do this'
+                        type: string
+                      database:
+                        default: concourse
+                        type: string
+                      host:
+                        type: string
+                      port:
+                        default: 5432
+                        format: int32
+                        minimum: 0
+                        type: integer
+                    required:
+                    - credentialsSecretName
+                    - database
+                    - host
+                    - port
+                    type: object
+                  replicas:
+                    default: 1
+                    format: int32
+                    minimum: 0
+                    type: integer
+                required:
+                - postgres
+                type: object
+              worker:
+                properties:
+                  replicas:
+                    default: 2
+                    format: int32
+                    minimum: 0
+                    type: integer
+                type: object
+            required:
+            - web
+            - worker
+            type: object
+          status:
+            description: ConcourseStatus defines the observed state of Concourse
+            properties:
+              url:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+            required:
+            - url
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

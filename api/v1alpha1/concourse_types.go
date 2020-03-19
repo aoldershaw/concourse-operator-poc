@@ -40,9 +40,8 @@ type WebSpec struct {
 	// +optional
 	Replicas *int32 `json:"replicas"`
 
-	PostgresSpec string `json:"postgres"`
+	PostgresSpec PostgresSpec `json:"postgres"`
 
-	// +optional
 	ClusterName string `json:"clusterName,omitempty"`
 }
 
@@ -51,10 +50,13 @@ type PostgresSpec struct {
 
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:default=5432
-	Port string `json:"port"`
+	Port int32 `json:"port"`
 
 	// TODO: what's the best way to do this
 	CredentialsSecret string `json:"credentialsSecretName"`
+
+	// +kubebuilder:default=concourse
+	Database string `json:"database"`
 }
 
 type WorkerSpec struct {
@@ -62,17 +64,14 @@ type WorkerSpec struct {
 	// +kubebuilder:default=2
 	// +optional
 	Replicas *int32 `json:"replicas"`
-
-	// +optional
-	WorkDir string `json:"work"`
 }
 
 // ConcourseStatus defines the observed state of Concourse
 type ConcourseStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	ATCURL      string   `json:"url"`
-	WorkerNames []string `json:"workerNames"`
+	ATCURL string `json:"url"`
+	//WorkerNames []string `json:"workerNames"`
 }
 
 // +kubebuilder:object:root=true
