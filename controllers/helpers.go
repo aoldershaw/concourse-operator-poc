@@ -6,9 +6,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"strconv"
 )
 
 func baseLabels(concourse v1alpha1.Concourse) map[string]string {
@@ -34,13 +34,17 @@ func atcServiceName(concourse v1alpha1.Concourse) string {
 	return concourse.Name + "-atc"
 }
 
+func tsaServiceName(concourse v1alpha1.Concourse) string {
+	return concourse.Name + "-tsa"
+}
+
 func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse) (appsv1.Deployment, error) {
 	web := concourse.Spec.WebSpec
 	psql := web.PostgresSpec
 	env := []corev1.EnvVar{
 		{Name: "CONCOURSE_LOG_LEVEL", Value: "debug"},
 		{Name: "CONCOURSE_POSTGRES_HOST", Value: psql.Host},
-		{Name: "CONCOURSE_POSTGRES_PORT", Value: psql.Port},
+		{Name: "CONCOURSE_POSTGRES_PORT", Value: strconv.Itoa(int(psql.Port))},
 		{Name: "CONCOURSE_POSTGRES_USER", ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: psql.CredentialsSecret},
@@ -74,7 +78,7 @@ func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse)
 	depl := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      concourse.Name,
+			Name:      concourse.Name + "-web",
 			Namespace: concourse.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -115,7 +119,7 @@ func (r *ConcourseReconciler) desiredATCService(concourse v1alpha1.Concourse) (c
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				{Name: "http", Port: 8080, Protocol: "TCP", TargetPort: intstr.FromString("http")},
+				{Name: "http", Port: 8080, Protocol: "TCP"},
 			},
 			Selector: atcLabels(concourse),
 			// TODO: this should probably have an Ingress instead
@@ -130,19 +134,45 @@ func (r *ConcourseReconciler) desiredATCService(concourse v1alpha1.Concourse) (c
 	return svc, nil
 }
 
+func (r *ConcourseReconciler) desiredTSAService(concourse v1alpha1.Concourse) (corev1.Service, error) {
+	svc := corev1.Service{
+		TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "Service"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tsaServiceName(concourse),
+			Namespace: concourse.Namespace,
+			Labels:    atcLabels(concourse),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{Name: "ssh", Port: 2222, Protocol: "TCP"},
+			},
+			Selector: atcLabels(concourse),
+			// TODO: this should probably have an Ingress instead
+			Type: corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	// always set the controller reference so that we know which object owns this.
+	if err := ctrl.SetControllerReference(&concourse, &svc, r.Scheme); err != nil {
+		return svc, err
+	}
+	return svc, nil
+}
+
 func (r *ConcourseReconciler) desiredWorkerDeployment(concourse v1alpha1.Concourse) (appsv1.Deployment, error) {
 	worker := concourse.Spec.WorkerSpec
 	env := []corev1.EnvVar{
 		{Name: "CONCOURSE_LOG_LEVEL", Value: "debug"},
-		{Name: "CONCOURSE_TSA_HOST", Value: atcServiceName(concourse) + ":2222"},
+		{Name: "CONCOURSE_TSA_HOST", Value: tsaServiceName(concourse) + ":2222"},
 		{Name: "CONCOURSE_BAGGAGECLAIM_DRIVER", Value: "overlay"},
 		{Name: "CONCOURSE_BIND_IP", Value: "0.0.0.0"},
 		{Name: "CONCOURSE_BAGGAGE_CLAIM_BIND_IP", Value: "0.0.0.0"},
 	}
+	privileged := true
 	depl := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{APIVersion: appsv1.SchemeGroupVersion.String(), Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      concourse.Name,
+			Name:      concourse.Name + "-worker",
 			Namespace: concourse.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -157,10 +187,13 @@ func (r *ConcourseReconciler) desiredWorkerDeployment(concourse v1alpha1.Concour
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "atc",
+							Name:  "worker",
 							Image: "aoldershaw/concourse:local",
 							Env:   env,
-							Args:  []string{"worker"},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &privileged,
+							},
+							Args: []string{"worker"},
 						},
 					},
 				},

@@ -3,5 +3,13 @@ kind: Concourse
 metadata:
   name: concourse-sample
 spec:
-  # Add fields here
-  foo: bar
+  web:
+    replicas: 1
+    postgres:
+      host: db
+      port: 5432
+      credentialsSecretName: psql-creds
+      database: concourse
+    clusterName: dev
+  worker:
+    replicas: 2

@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -63,6 +65,11 @@ func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		logger.Error(err, "desired-atc-service")
 		return ctrl.Result{}, err
 	}
+	tsaService, err := r.desiredTSAService(concourse)
+	if err != nil {
+		logger.Error(err, "desired-tsa-service")
+		return ctrl.Result{}, err
+	}
 	workerDeployment, err := r.desiredWorkerDeployment(concourse)
 	if err != nil {
 		logger.Error(err, "desired-worker-service")
@@ -79,6 +86,11 @@ func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 	err = r.Patch(ctx, &atcService, client.Apply, applyOpts...)
+	if err != nil {
+		logger.Error(err, "apply-atc-service")
+		return ctrl.Result{}, err
+	}
+	err = r.Patch(ctx, &tsaService, client.Apply, applyOpts...)
 	if err != nil {
 		logger.Error(err, "apply-atc-service")
 		return ctrl.Result{}, err
@@ -102,5 +114,7 @@ func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *ConcourseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&deployv1alpha1.Concourse{}).
+		Owns(&corev1.Service{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }

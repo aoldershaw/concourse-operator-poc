@@ -76,6 +76,7 @@ type ConcourseStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:JSONPath=".status.url",name="URL",type="string"
 
 // Concourse is the Schema for the concourses API
 type Concourse struct {

@@ -16,7 +16,11 @@ spec:
     singular: concourse
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.url
+      name: URL
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Concourse is the Schema for the concourses API
