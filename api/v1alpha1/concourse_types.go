@@ -30,6 +30,7 @@ type ConcourseSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	Image      string     `json:"image"`
 	WebSpec    WebSpec    `json:"web"`
 	WorkerSpec WorkerSpec `json:"worker"`
 }

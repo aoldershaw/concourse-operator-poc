@@ -3,6 +3,7 @@ kind: Concourse
 metadata:
   name: concourse-sample
 spec:
+  image: concourse/concourse-rc:6.0.0-rc.11
   web:
     replicas: 1
     postgres:

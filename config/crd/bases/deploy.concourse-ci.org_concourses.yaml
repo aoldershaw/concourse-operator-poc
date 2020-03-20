@@ -40,6 +40,8 @@ spec:
           spec:
             description: ConcourseSpec defines the desired state of Concourse
             properties:
+              image:
+                type: string
               web:
                 properties:
                   clusterName:
@@ -82,6 +84,7 @@ spec:
                     type: integer
                 type: object
             required:
+            - image
             - web
             - worker
             type: object

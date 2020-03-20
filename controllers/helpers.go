@@ -11,8 +11,6 @@ import (
 	"strconv"
 )
 
-const concourseImage = "concourse/concourse:latest"
-
 func int32Ptr(v int32) *int32 {
 	return &v
 }
@@ -109,7 +107,7 @@ func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse)
 					Containers: []corev1.Container{
 						{
 							Name:  "atc",
-							Image: concourseImage,
+							Image: concourse.Spec.Image,
 							Env:   env,
 							Args:  []string{"web"},
 							VolumeMounts: []corev1.VolumeMount{
@@ -236,7 +234,7 @@ func (r *ConcourseReconciler) desiredWorkerDeployment(concourse v1alpha1.Concour
 					Containers: []corev1.Container{
 						{
 							Name:  "worker",
-							Image: concourseImage,
+							Image: concourse.Spec.Image,
 							Env:   env,
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &privileged,
