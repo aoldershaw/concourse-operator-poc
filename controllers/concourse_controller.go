@@ -21,6 +21,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,6 +43,7 @@ type ConcourseReconciler struct {
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch;get;patch
 // +kubebuilder:rbac:groups=core,resources=services,verbs=list;watch;get;patch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=list;watch;get;create
 
 func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -48,11 +51,38 @@ func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	logger.Info("reconciling concourse")
 
-	// TODO: create secrets (one of the main purposes of the operator...)
-
 	var concourse deployv1alpha1.Concourse
 	if err := r.Get(ctx, req.NamespacedName, &concourse); err != nil {
+		if !apierrors.IsNotFound(err) {
+			logger.Error(err, "get-concourse")
+			return ctrl.Result{}, err
+		}
+		logger.Info("concourse-not-found")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// TODO: how to do rotations
+	secretKey := client.ObjectKey{
+		Name:      getSecretName(concourse),
+		Namespace: concourse.Namespace,
+	}
+	var secret corev1.Secret
+	if err := r.Get(ctx, secretKey, &secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			logger.Error(err, "get-secret")
+			return ctrl.Result{}, err
+		}
+		logger.Info("secret-not-found")
+		secret, err = generateSecret(concourse)
+		if err != nil {
+			logger.Error(err, "generate-secret")
+			return ctrl.Result{}, err
+		}
+		err = r.Create(ctx, &secret)
+		if err != nil {
+			logger.Error(err, "create-secret")
+			return ctrl.Result{}, err
+		}
 	}
 
 	atcDeployment, err := r.desiredATCDeployment(concourse)
@@ -114,6 +144,7 @@ func (r *ConcourseReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *ConcourseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&deployv1alpha1.Concourse{}).
+		Owns(&corev1.Secret{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.Deployment{}).
 		Complete(r)

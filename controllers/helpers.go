@@ -11,6 +11,12 @@ import (
 	"strconv"
 )
 
+const concourseImage = "concourse/concourse:latest"
+
+func int32Ptr(v int32) *int32 {
+	return &v
+}
+
 func baseLabels(concourse v1alpha1.Concourse) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/name":     "concourse",
@@ -59,6 +65,15 @@ func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse)
 		}},
 		{Name: "CONCOURSE_POSTGRES_DATABASE", Value: psql.Database},
 		{Name: "CONCOURSE_CLUSTER_NAME", Value: web.ClusterName},
+		{Name: "CONCOURSE_ENCRYPTION_KEY", ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: getSecretName(concourse)},
+				Key:                  "db-encryption-key",
+			},
+		}},
+		{Name: "CONCOURSE_TSA_AUTHORIZED_KEYS", Value: "/concourse-keys/worker_key.pub"},
+		{Name: "CONCOURSE_TSA_HOST_KEY", Value: "/concourse-keys/host_key"},
+		{Name: "CONCOURSE_SESSION_SIGNING_KEY", Value: "/concourse-keys/session_signing_key"},
 	}
 	// TODO: not like this
 	if true {
@@ -94,9 +109,41 @@ func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse)
 					Containers: []corev1.Container{
 						{
 							Name:  "atc",
-							Image: "aoldershaw/concourse:local",
+							Image: concourseImage,
 							Env:   env,
 							Args:  []string{"web"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "concourse-keys",
+									MountPath: "/concourse-keys",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "concourse-keys",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  getSecretName(concourse),
+									DefaultMode: int32Ptr(0400),
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "tsa-host-private-key",
+											Path: "host_key",
+										},
+										{
+											Key:  "session-signing-key",
+											Path: "session_signing_key",
+										},
+										{
+											Key:  "worker-public-key",
+											Path: "worker_key.pub",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -147,8 +194,7 @@ func (r *ConcourseReconciler) desiredTSAService(concourse v1alpha1.Concourse) (c
 				{Name: "ssh", Port: 2222, Protocol: "TCP"},
 			},
 			Selector: atcLabels(concourse),
-			// TODO: this should probably have an Ingress instead
-			Type: corev1.ServiceTypeClusterIP,
+			Type:     corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -167,6 +213,8 @@ func (r *ConcourseReconciler) desiredWorkerDeployment(concourse v1alpha1.Concour
 		{Name: "CONCOURSE_BAGGAGECLAIM_DRIVER", Value: "overlay"},
 		{Name: "CONCOURSE_BIND_IP", Value: "0.0.0.0"},
 		{Name: "CONCOURSE_BAGGAGE_CLAIM_BIND_IP", Value: "0.0.0.0"},
+		{Name: "CONCOURSE_TSA_WORKER_PRIVATE_KEY", Value: "/concourse-keys/worker_key"},
+		{Name: "CONCOURSE_TSA_PUBLIC_KEY", Value: "/concourse-keys/host_key.pub"},
 	}
 	privileged := true
 	depl := appsv1.Deployment{
@@ -188,12 +236,40 @@ func (r *ConcourseReconciler) desiredWorkerDeployment(concourse v1alpha1.Concour
 					Containers: []corev1.Container{
 						{
 							Name:  "worker",
-							Image: "aoldershaw/concourse:local",
+							Image: concourseImage,
 							Env:   env,
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &privileged,
 							},
 							Args: []string{"worker"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "concourse-keys",
+									MountPath: "/concourse-keys",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "concourse-keys",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  getSecretName(concourse),
+									DefaultMode: int32Ptr(0400),
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "tsa-host-public-key",
+											Path: "host_key.pub",
+										},
+										{
+											Key:  "worker-private-key",
+											Path: "worker_key",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
