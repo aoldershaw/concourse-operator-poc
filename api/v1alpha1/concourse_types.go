@@ -53,7 +53,6 @@ type PostgresSpec struct {
 	// +kubebuilder:default=5432
 	Port int32 `json:"port"`
 
-	// TODO: what's the best way to do this
 	CredentialsSecret string `json:"credentialsSecretName"`
 
 	// +kubebuilder:default=concourse
@@ -71,8 +70,8 @@ type WorkerSpec struct {
 type ConcourseStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
 	ATCURL string `json:"url"`
-	//WorkerNames []string `json:"workerNames"`
 }
 
 // +kubebuilder:object:root=true

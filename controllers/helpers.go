@@ -38,10 +38,6 @@ func atcServiceName(concourse v1alpha1.Concourse) string {
 	return concourse.Name + "-atc"
 }
 
-func tsaServiceName(concourse v1alpha1.Concourse) string {
-	return concourse.Name + "-tsa"
-}
-
 func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse) (appsv1.Deployment, error) {
 	web := concourse.Spec.WebSpec
 	psql := web.PostgresSpec
@@ -165,6 +161,7 @@ func (r *ConcourseReconciler) desiredATCService(concourse v1alpha1.Concourse) (c
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{Name: "http", Port: 8080, Protocol: "TCP"},
+				{Name: "tsa", Port: 2222, Protocol: "TCP"},
 			},
 			Selector: atcLabels(concourse),
 			// TODO: this should probably have an Ingress instead
@@ -179,35 +176,11 @@ func (r *ConcourseReconciler) desiredATCService(concourse v1alpha1.Concourse) (c
 	return svc, nil
 }
 
-func (r *ConcourseReconciler) desiredTSAService(concourse v1alpha1.Concourse) (corev1.Service, error) {
-	svc := corev1.Service{
-		TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "Service"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      tsaServiceName(concourse),
-			Namespace: concourse.Namespace,
-			Labels:    atcLabels(concourse),
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{Name: "ssh", Port: 2222, Protocol: "TCP"},
-			},
-			Selector: atcLabels(concourse),
-			Type:     corev1.ServiceTypeClusterIP,
-		},
-	}
-
-	// always set the controller reference so that we know which object owns this.
-	if err := ctrl.SetControllerReference(&concourse, &svc, r.Scheme); err != nil {
-		return svc, err
-	}
-	return svc, nil
-}
-
 func (r *ConcourseReconciler) desiredWorkerDeployment(concourse v1alpha1.Concourse) (appsv1.Deployment, error) {
 	worker := concourse.Spec.WorkerSpec
 	env := []corev1.EnvVar{
 		{Name: "CONCOURSE_LOG_LEVEL", Value: "debug"},
-		{Name: "CONCOURSE_TSA_HOST", Value: tsaServiceName(concourse) + ":2222"},
+		{Name: "CONCOURSE_TSA_HOST", Value: atcServiceName(concourse) + ":2222"},
 		{Name: "CONCOURSE_BAGGAGECLAIM_DRIVER", Value: "overlay"},
 		{Name: "CONCOURSE_BIND_IP", Value: "0.0.0.0"},
 		{Name: "CONCOURSE_BAGGAGE_CLAIM_BIND_IP", Value: "0.0.0.0"},

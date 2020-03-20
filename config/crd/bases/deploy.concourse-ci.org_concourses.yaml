@@ -49,7 +49,6 @@ spec:
                   postgres:
                     properties:
                       credentialsSecretName:
-                        description: 'TODO: what''s the best way to do this'
                         type: string
                       database:
                         default: concourse
@@ -92,9 +91,6 @@ spec:
             description: ConcourseStatus defines the observed state of Concourse
             properties:
               url:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
                 type: string
             required:
             - url
