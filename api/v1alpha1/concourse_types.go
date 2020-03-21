@@ -72,6 +72,12 @@ type ConcourseStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	ATCURL string `json:"url"`
+
+	ActiveImage string `json:"activeImage"`
+
+	DBVersion *int64 `json:"dbVersion"`
+
+	// TODO: also want ConcourseVersion here
 }
 
 // +kubebuilder:object:root=true

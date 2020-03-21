@@ -90,9 +90,16 @@ spec:
           status:
             description: ConcourseStatus defines the observed state of Concourse
             properties:
+              activeImage:
+                type: string
+              dbVersion:
+                format: int64
+                type: integer
               url:
                 type: string
             required:
+            - activeImage
+            - dbVersion
             - url
             type: object
         type: object

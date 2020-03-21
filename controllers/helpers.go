@@ -38,11 +38,8 @@ func atcServiceName(concourse v1alpha1.Concourse) string {
 	return concourse.Name + "-atc"
 }
 
-func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse) (appsv1.Deployment, error) {
-	web := concourse.Spec.WebSpec
-	psql := web.PostgresSpec
-	env := []corev1.EnvVar{
-		{Name: "CONCOURSE_LOG_LEVEL", Value: "debug"},
+func psqlEnv(psql v1alpha1.PostgresSpec) []corev1.EnvVar {
+	return []corev1.EnvVar{
 		{Name: "CONCOURSE_POSTGRES_HOST", Value: psql.Host},
 		{Name: "CONCOURSE_POSTGRES_PORT", Value: strconv.Itoa(int(psql.Port))},
 		{Name: "CONCOURSE_POSTGRES_USER", ValueFrom: &corev1.EnvVarSource{
@@ -58,6 +55,13 @@ func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse)
 			},
 		}},
 		{Name: "CONCOURSE_POSTGRES_DATABASE", Value: psql.Database},
+	}
+}
+
+func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse) (appsv1.Deployment, error) {
+	web := concourse.Spec.WebSpec
+	env := []corev1.EnvVar{
+		{Name: "CONCOURSE_LOG_LEVEL", Value: "debug"},
 		{Name: "CONCOURSE_CLUSTER_NAME", Value: web.ClusterName},
 		{Name: "CONCOURSE_ENCRYPTION_KEY", ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
@@ -69,6 +73,7 @@ func (r *ConcourseReconciler) desiredATCDeployment(concourse v1alpha1.Concourse)
 		{Name: "CONCOURSE_TSA_HOST_KEY", Value: "/concourse-keys/host_key"},
 		{Name: "CONCOURSE_SESSION_SIGNING_KEY", Value: "/concourse-keys/session_signing_key"},
 	}
+	env = append(env, psqlEnv(web.PostgresSpec)...)
 	// TODO: not like this
 	if true {
 		env = append(env,
