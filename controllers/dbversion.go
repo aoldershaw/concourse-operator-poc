@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"strconv"
 )
 
 const dbVersionAnnotation = "concourse.dbVersion"
@@ -112,4 +113,25 @@ func isRollback(desiredVersion int64, activeVersion *int64) bool {
 		return false
 	}
 	return desiredVersion < *activeVersion
+}
+
+func readDBVersion(fetchDBVersionJob batchv1.Job) (int64, error) {
+	dbVersionStr, hasDBVersion := fetchDBVersionJob.Annotations[dbVersionAnnotation]
+	if !hasDBVersion {
+		err := errors.New("no DB version in annotations")
+		return 0, err
+	}
+	dbVersion, err := strconv.ParseInt(dbVersionStr, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return dbVersion, nil
+}
+
+func jobImage(job batchv1.Job) string {
+	containers := job.Spec.Template.Spec.Containers
+	if len(containers) == 0 {
+		return ""
+	}
+	return containers[0].Image
 }
