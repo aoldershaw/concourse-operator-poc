@@ -7,9 +7,13 @@
 make install
 # Create a "Concourse" instance
 kubectl apply -f config/samples/deploy_v1alpha1_concourse.yaml
+# Temporary hack: grant Role to default service account
+kubectl apply -f hack/rbac.yaml
 # Run controller locally
 make run
 ```
+
+Note: with the RBAC hack, this needs to be deployed in the default namespace.
 
 ## Prerequisites
 
