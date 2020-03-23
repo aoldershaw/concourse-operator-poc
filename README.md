@@ -4,11 +4,11 @@
 
 ```sh
 # Install CRD
-$ make install
+make install
 # Create a "Concourse" instance
-$ kubectl apply -f config/samples/deploy_v1alpha1_concourse.yaml
+kubectl apply -f config/samples/deploy_v1alpha1_concourse.yaml
 # Run controller locally
-$ make run
+make run
 ```
 
 ## Prerequisites
